@@ -1,0 +1,19 @@
+﻿@using Microsoft.AspNetCore.Hosting;
+@inject IWebHostEnvironment HostEnvironment
+
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+    <div class="text-center">
+        <h1 class="display-4">Hi,</h1>
+        <br />
+        <h4>@string.Format("I am webapp running on Linux Docker container in {0} environment.", HostEnvironment.EnvironmentName) for demo. </h4>
+        @*<br />
+        <b>EnvironmentName:@HostEnvironment.EnvironmentName</b>
+        <br />*@
+        @*@Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");*@
+    </div>
+<div>
+    
+</div>
