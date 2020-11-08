@@ -1,0 +1,88 @@
+# ASP.NET Core
+# Build and test ASP.NET Core projects targeting .NET Core.
+# Add steps that run tests, create a NuGet package, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+
+steps:
+# - script: dotnet build --configuration $(buildConfiguration)
+#   displayName: 'dotnet build $(buildConfiguration)'
+- task: AzureResourceGroupDeployment@2
+  displayName: 'Azure Deployment:Create Azure Container Registry'
+  inputs:
+    azureSubscription: 'AzTechDayscontainersOnWebapp - Azure'
+    resourceGroupName: 'AzTechDayscontainersOnWebapp-rg'
+    location: 'East US'
+    csmFile: '$(System.DefaultWorkingDirectory)/**/containerRegistry-template.json'
+    overrideParameters: '-registryName "AzTechDayscontainersOnWebappacr" -registryLocation "South Central US" -registrySku "Standard"'
+- task: DotNetCoreCLI@2
+  displayName: Restore
+  inputs:
+    command: restore
+    projects: '**/*.csproj'
+    #Your build pipeline references an undefined variable named ‘BuildConfiguration’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+- task: DotNetCoreCLI@2
+  displayName: Build
+  inputs:
+    projects: '**/*.csproj'
+    arguments: '--configuration $(BuildConfiguration)'
+    #Your build pipeline references an undefined variable named ‘BuildConfiguration’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+- task: DotNetCoreCLI@2
+  displayName: 'Publish functional tests'
+  inputs:
+    command: publish
+    publishWebProjects: false
+    projects: '**/*FunctionalTests*.csproj'
+    arguments: '--configuration $(BuildConfiguration) --output "$(build.artifactstagingdirectory)/FunctionalTests"'
+    zipAfterPublish: false
+    modifyOutputPath: false
+    buildProperties: 
+- task: CopyFiles@2
+  displayName: 'Copy runsettings file'
+  inputs:
+    Contents: '**/*.runsettings'
+    TargetFolder: '$(build.artifactstagingdirectory)/FunctionalTests'
+    flattenFolders: true
+
+#Your build pipeline references an undefined variable named ‘BuildConfiguration’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+- task: DotNetCoreCLI@2
+  displayName: 'Publish webapp'
+  inputs:
+    command: publish
+    arguments: '--configuration $(BuildConfiguration) --output $(System.DefaultWorkingDirectory)/PublishedWebApp'
+    zipAfterPublish: false
+- task: Docker@1
+  displayName: 'Build an image'
+  inputs:
+    azureSubscriptionEndpoint: 'AzTechDayscontainersOnWebapp - Azure'
+    azureContainerRegistry: aztechdayscontainersonwebappacr.azurecr.io
+    imageName: 'aztechdayscontainersonwebapp:$(Build.BuildId)'
+    useDefaultContext: false
+    buildContext: '$(System.DefaultWorkingDirectory)/PublishedWebApp'
+- task: Docker@1
+  displayName: 'Push an image'
+  inputs:
+    azureSubscriptionEndpoint: 'AzTechDayscontainersOnWebapp - Azure'
+    azureContainerRegistry: aztechdayscontainersonwebappacr.azurecr.io
+    command: 'Push an image'
+    imageName: 'aztechdayscontainersonwebapp:$(Build.BuildId)'
+- task: CopyFiles@2
+  displayName: 'Copy ARM templates'
+  inputs:
+    SourceFolder: ArmTemplates
+    TargetFolder: '$(build.artifactstagingdirectory)'
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact'
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'
+
+
+
